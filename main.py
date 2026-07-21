@@ -1,13 +1,3 @@
-"""
-main.py — Today's Paper Pipeline (Final Version)
-─────────────────────────────────────────────────────────────────────────────
-Run:
-  python main.py --test          # 3 dates only (~10 min)
-  python main.py                 # full 10-year run (resumable)
-  python main.py --skip-scrape   # embed existing raw_articles.json only
-─────────────────────────────────────────────────────────────────────────────
-"""
-
 import argparse
 import json
 import logging
