@@ -1,0 +1,25 @@
+# requirements.txt — BS E-Paper Scraper
+
+# ── Core scraping ─────────────────────────────────────────────────────────────
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.1.0               # fast HTML parser
+
+# ── Undetected Chrome (the key dependency) ────────────────────────────────────
+undetected-chromedriver>=3.5.5
+selenium>=4.18.0
+
+# NOTE: You must have Google Chrome installed on your machine.
+# undetected-chromedriver auto-matches your Chrome version.
+# Check your Chrome version: chrome://settings/help
+# If Chrome is not installed: https://www.google.com/chrome/
+
+# ── Embedding ─────────────────────────────────────────────────────────────────
+torch>=2.2.0
+transformers>=4.39.0
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.4.0
+
+# ── Market labels ─────────────────────────────────────────────────────────────
+yfinance>=0.2.37
