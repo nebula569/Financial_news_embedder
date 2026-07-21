@@ -1,21 +1,3 @@
-"""
-todays_paper_scraper.py — FINAL WORKING VERSION
-─────────────────────────────────────────────────────────────────────────────
-Previous run confirmed:
-  ✅ 81 article links correctly extracted per date
-  ✅ Hindi filtered out (only 1 rejected)
-  ✅ Link filter working perfectly
-  ❌ Total: 0 — individual article pages returning empty via requests
-
-Root cause: requests gets 403 on article pages because Cloudflare blocks
-plain HTTP requests. The listing page worked because we used undetected
-Chrome. Individual articles need the same treatment.
-
-Fix: fetch each article page using driver.get() (undetected Chrome)
-instead of requests. Slower but guaranteed to work.
-─────────────────────────────────────────────────────────────────────────────
-"""
-
 import re
 import json
 import time
@@ -32,10 +14,6 @@ import undetected_chromedriver as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import WebDriverException, TimeoutException
 
-# ══════════════════════════════════════════════════════════════════════════════
-# CONFIG
-# ══════════════════════════════════════════════════════════════════════════════
-
 BASE         = "https://www.business-standard.com"
 TODAYS_PAPER = f"{BASE}/todays-paper"
 
@@ -43,9 +21,9 @@ START_DATE = datetime(2014, 1, 1)
 END_DATE   = datetime(2024, 1, 1)
 
 SAVE_EVERY    = 20
-ARTICLE_WAIT  = 4      # seconds to wait after loading each article
+ARTICLE_WAIT  = 4
 PAGE_DELAY    = (2.0, 4.0)
-ARTICLE_DELAY = (1.5, 3.0)   # between article fetches (same driver)
+ARTICLE_DELAY = (1.5, 3.0)
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -65,10 +43,6 @@ SKIP_PARTS = [
     "/latest", "/premium", "/newsletter", "/e-paper",
 ]
 
-# ══════════════════════════════════════════════════════════════════════════════
-# LOGGING
-# ══════════════════════════════════════════════════════════════════════════════
-
 def get_logger(out_dir: str) -> logging.Logger:
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     root = logging.getLogger()
@@ -85,10 +59,6 @@ def get_logger(out_dir: str) -> logging.Logger:
         ],
     )
     return logging.getLogger("scraper")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# CHECKPOINT
-# ══════════════════════════════════════════════════════════════════════════════
 
 class Checkpoint:
     def __init__(self, path: str):
@@ -138,10 +108,6 @@ class Checkpoint:
     def dates_done(self) -> int:
         return len(self._dates)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ARTICLE STORE
-# ══════════════════════════════════════════════════════════════════════════════
-
 class ArticleStore:
     def __init__(self, path: Path, existing: list):
         self._lock     = threading.Lock()
@@ -175,10 +141,6 @@ class ArticleStore:
         with self._lock:
             return len(self._articles)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# DATE HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-
 def generate_dates(start, end, max_dates=None):
     dates, cur = [], end
     while cur >= start:
@@ -186,10 +148,6 @@ def generate_dates(start, end, max_dates=None):
             dates.append(cur)
         cur -= timedelta(days=1)
     return dates[:max_dates] if max_dates else dates
-
-# ══════════════════════════════════════════════════════════════════════════════
-# LINK EXTRACTION (confirmed working from previous run)
-# ══════════════════════════════════════════════════════════════════════════════
 
 def is_article_url(href: str) -> bool:
     if "www.business-standard.com" not in href:
@@ -229,10 +187,6 @@ def extract_article_links(html: str, log: logging.Logger) -> list[str]:
             log.info(f"    → {lnk}")
     return links
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ARTICLE PARSING
-# ══════════════════════════════════════════════════════════════════════════════
-
 BOILERPLATE = re.compile(
     r"(Subscribe to Business Standard.*|Also Read.*|Don.t miss.*|"
     r"First Published.*|Disclaimer.*|Follow us on.*|Click here to.*|"
@@ -256,7 +210,6 @@ def parse_article(html: str, url: str, date: datetime) -> Optional[dict]:
         "scraped_at": datetime.utcnow().isoformat(),
     }
 
-    # 1. JSON-LD
     for tag in soup.find_all("script", type="application/ld+json"):
         try:
             d = json.loads(tag.string or "{}")
@@ -295,7 +248,6 @@ def parse_article(html: str, url: str, date: datetime) -> Optional[dict]:
         pub = meta("article:published_time")
         if pub: rec["date"] = pub[:10]
 
-    # If still no title, try h1 directly
     if not rec["title"]:
         h1 = soup.find("h1")
         if h1: rec["title"] = h1.get_text(strip=True)
@@ -329,10 +281,6 @@ def parse_article(html: str, url: str, date: datetime) -> Optional[dict]:
 
     return rec
 
-# ══════════════════════════════════════════════════════════════════════════════
-# DRIVER
-# ══════════════════════════════════════════════════════════════════════════════
-
 def create_driver(log: logging.Logger) -> uc.Chrome:
     options = uc.ChromeOptions()
     options.add_argument("--headless=new")
@@ -353,10 +301,6 @@ def create_driver(log: logging.Logger) -> uc.Chrome:
 def quit_driver(driver):
     try: driver.quit()
     except Exception: pass
-
-# ══════════════════════════════════════════════════════════════════════════════
-# JS — date form interaction
-# ══════════════════════════════════════════════════════════════════════════════
 
 DISMISS_JS = """
 var sel = ['[class*="cookie"]','[class*="consent"]','[class*="popup"]',
@@ -400,10 +344,6 @@ if (form) { form.submit(); return 'OK:submit:'+dateStr; }
 input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,bubbles:true}));
 return 'OK:enter:'+dateStr;
 """
-
-# ══════════════════════════════════════════════════════════════════════════════
-# GET LISTING LINKS FOR ONE DATE
-# ══════════════════════════════════════════════════════════════════════════════
 
 def get_links_for_date(driver: uc.Chrome, date: datetime,
                        log: logging.Logger) -> list[str]:
@@ -451,25 +391,16 @@ def get_links_for_date(driver: uc.Chrome, date: datetime,
 
     return []
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FETCH ARTICLE WITH DRIVER (not requests — bypasses Cloudflare)
-# ══════════════════════════════════════════════════════════════════════════════
-
 def fetch_article_with_driver(
     driver: uc.Chrome,
     url: str,
     date: datetime,
     log: logging.Logger,
 ) -> Optional[dict]:
-    """
-    Fetch one article page using the undetected Chrome driver.
-    This bypasses Cloudflare completely — same as how the listing page works.
-    """
     try:
         driver.get(url)
         time.sleep(ARTICLE_WAIT)
 
-        # Dismiss any popups
         driver.execute_script(DISMISS_JS)
         time.sleep(0.5)
 
@@ -486,13 +417,9 @@ def fetch_article_with_driver(
         log.debug(f"  Article error: {e}")
         return None
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MAIN
-# ══════════════════════════════════════════════════════════════════════════════
-
 def run_scraper(
     out_dir: str    = "bs_todays_paper_data",
-    years_back: int = None,   # kept for backward compat but ignored; uses START_DATE/END_DATE
+    years_back: int = None,
     max_dates: int  = None,
 ) -> list[dict]:
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -537,7 +464,6 @@ def run_scraper(
             log.info(f"\n[{idx}/{len(pending)}] {date.strftime('%Y-%m-%d')}"
                      f" | Total: {len(store)}")
 
-            # Step 1: get article links for this date
             try:
                 links = get_links_for_date(driver, date, log)
             except WebDriverException:
@@ -556,7 +482,6 @@ def run_scraper(
             new_links = [l for l in links if not ckpt.url_seen(l)]
             log.info(f"  {len(new_links)} new / {len(links)} total")
 
-            # Step 2: fetch each article with the driver
             day_collected = 0
             for i, url in enumerate(new_links, 1):
                 log.info(f"  [{i}/{len(new_links)}] {url[-70:]}")
@@ -590,7 +515,6 @@ def run_scraper(
             ckpt.mark_date(date)
             store.save()
 
-            # Restart driver every 50 dates
             if idx % 50 == 0 and idx < len(pending):
                 log.info("  Restarting driver…")
                 quit_driver(driver)
